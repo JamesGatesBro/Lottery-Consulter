@@ -38,47 +38,55 @@ graph TD
 
 ## 2. 技术描述
 
-- **Frontend**: React@18 + TypeScript + Tailwind CSS + Next.js@14
-- **API Integration**: Random.org HTTP API + 自定义算法引擎
-- **状态管理**: React Hooks (useState, useEffect, useCallback)
-- **UI组件**: 自定义组件 + Tailwind CSS动画
-- **数据处理**: 客户端算法计算 + API数据融合
+* **Frontend**: React\@18 + TypeScript + Tailwind CSS + Next.js\@14
+
+* **API Integration**: Random.org HTTP API + 自定义算法引擎
+
+* **状态管理**: React Hooks (useState, useEffect, useCallback)
+
+* **UI组件**: 自定义组件 + Tailwind CSS动画
+
+* **数据处理**: 客户端算法计算 + API数据融合
 
 ## 3. 路由定义
 
-| 路由 | 用途 |
-|------|-----|
-| /lucky-test | 幸运指数测试主页面，包含所有测试功能和结果展示 |
+| 路由               | 用途                                |
+| ---------------- | --------------------------------- |
+| /lucky-test      | 幸运指数测试主页面，包含所有测试功能和结果展示           |
 | /api/lucky-index | 后端API路由，处理幸运指数计算和Random.org API集成 |
-| /api/random-seed | Random.org API代理路由，获取真随机种子数据 |
+| /api/random-seed | Random.org API代理路由，获取真随机种子数据      |
 
 ## 4. API定义
 
 ### 4.1 核心API
 
 **幸运指数计算API**
+
 ```
 POST /api/lucky-index
 ```
 
 Request:
-| 参数名称 | 参数类型 | 是否必需 | 描述 |
-|---------|---------|---------|------|
-| name | string | true | 用户姓名，用于数字命理学计算 |
-| birthDate | string | true | 出生日期，格式：YYYY-MM-DD |
-| luckyColor | string | false | 幸运颜色，影响权重计算 |
-| preferences | object | false | 其他偏好设置 |
+
+| 参数名称        | 参数类型   | 是否必需  | 描述                 |
+| ----------- | ------ | ----- | ------------------ |
+| name        | string | true  | 用户姓名，用于数字命理学计算     |
+| birthDate   | string | true  | 出生日期，格式：YYYY-MM-DD |
+| luckyColor  | string | false | 幸运颜色，影响权重计算        |
+| preferences | object | false | 其他偏好设置             |
 
 Response:
-| 参数名称 | 参数类型 | 描述 |
-|---------|---------|------|
-| luckyIndex | number | 幸运指数评分 (0-100) |
-| luckyNumbers | number[] | 推荐的幸运数字数组 |
-| interpretation | string | 幸运指数解读文本 |
-| randomSeed | string | 使用的随机种子值 |
-| timestamp | string | 计算时间戳 |
+
+| 参数名称           | 参数类型      | 描述             |
+| -------------- | --------- | -------------- |
+| luckyIndex     | number    | 幸运指数评分 (0-100) |
+| luckyNumbers   | number\[] | 推荐的幸运数字数组      |
+| interpretation | string    | 幸运指数解读文本       |
+| randomSeed     | string    | 使用的随机种子值       |
+| timestamp      | string    | 计算时间戳          |
 
 Example Request:
+
 ```json
 {
   "name": "张三",
@@ -92,6 +100,7 @@ Example Request:
 ```
 
 Example Response:
+
 ```json
 {
   "luckyIndex": 87,
@@ -103,23 +112,26 @@ Example Response:
 ```
 
 **Random.org代理API**
+
 ```
 GET /api/random-seed
 ```
 
 Request:
-| 参数名称 | 参数类型 | 是否必需 | 描述 |
-|---------|---------|---------|------|
-| count | number | false | 需要的随机数数量，默认为1 |
-| min | number | false | 最小值，默认为1 |
-| max | number | false | 最大值，默认为1000000 |
+
+| 参数名称  | 参数类型   | 是否必需  | 描述             |
+| ----- | ------ | ----- | -------------- |
+| count | number | false | 需要的随机数数量，默认为1  |
+| min   | number | false | 最小值，默认为1       |
+| max   | number | false | 最大值，默认为1000000 |
 
 Response:
-| 参数名称 | 参数类型 | 描述 |
-|---------|---------|------|
-| success | boolean | 请求是否成功 |
-| data | number[] | 随机数数组 |
-| source | string | 数据来源标识 |
+
+| 参数名称    | 参数类型      | 描述     |
+| ------- | --------- | ------ |
+| success | boolean   | 请求是否成功 |
+| data    | number\[] | 随机数数组  |
+| source  | string    | 数据来源标识 |
 
 ## 5. 服务器架构图
 
@@ -185,6 +197,7 @@ erDiagram
 ### 6.2 TypeScript类型定义
 
 **用户输入类型**
+
 ```typescript
 interface UserInput {
   name: string;
@@ -199,6 +212,7 @@ interface UserInput {
 ```
 
 **随机种子类型**
+
 ```typescript
 interface RandomSeed {
   id: string;
@@ -210,6 +224,7 @@ interface RandomSeed {
 ```
 
 **幸运结果类型**
+
 ```typescript
 interface LuckyResult {
   luckyIndex: number; // 0-100
@@ -228,6 +243,7 @@ interface LuckyResult {
 ```
 
 **API响应类型**
+
 ```typescript
 interface LuckyIndexResponse {
   success: boolean;
@@ -244,6 +260,7 @@ interface LuckyIndexResponse {
 ### 6.3 算法配置
 
 **数字命理学权重配置**
+
 ```typescript
 const NUMEROLOGY_WEIGHTS = {
   name: 0.3,        // 姓名数字权重
@@ -267,7 +284,11 @@ const COLOR_VALUES = {
 
 ### 6.4 缓存策略
 
-- **Random.org API结果**: 缓存5分钟，避免频繁调用外部API
-- **用户计算结果**: 不缓存，确保每次测试的独特性
-- **算法配置**: 应用启动时加载，运行期间不变
-- **错误回退数据**: 缓存24小时，在外部API不可用时使用
+* **Random.org API结果**: 缓存5分钟，避免频繁调用外部API
+
+* **用户计算结果**: 不缓存，确保每次测试的独特性
+
+* **算法配置**: 应用启动时加载，运行期间不变
+
+* **错误回退数据**: 缓存24小时，在外部API不可用时使用
+

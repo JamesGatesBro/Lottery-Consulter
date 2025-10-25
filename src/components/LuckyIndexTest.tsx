@@ -54,23 +54,19 @@ export default function LuckyIndexTest({
   };
 
   const handleUseNumbers = (numbers: number[]) => {
-    // 这里可以与主页面的彩票号码生成功能集成
+    // 与主页面的彩票号码生成功能集成
     
-    // 可以触发一个事件或调用父组件的回调
     if (typeof window !== 'undefined') {
       // 首先发送幸运数字事件
       window.dispatchEvent(new CustomEvent('useLuckyNumbers', { 
         detail: { numbers } 
       }));
       
-      // 然后触发试手气功能
+      // 然后触发试手气功能，模拟点击"试试好手气"按钮
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('triggerTryLuck'));
       }, 100); // 稍微延迟确保幸运数字先被设置
     }
-    
-    // 显示提示
-    alert(`正在使用幸运数字 ${numbers.join(', ')} 生成彩票号码...`);
   };
 
   return (
@@ -103,7 +99,7 @@ export default function LuckyIndexTest({
             <div className="text-gray-700 space-y-1">
               <div className="flex items-center justify-center">
                 <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse mr-2"></div>
-                <span>获取真随机种子</span>
+                <span>获取大气噪声种子</span>
               </div>
               <div className="flex items-center justify-center">
                 <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse mr-2" style={{ animationDelay: '0.2s' }}></div>
@@ -123,7 +119,7 @@ export default function LuckyIndexTest({
             {randomSeed && (
               <div className="mt-4 p-3 bg-white/5 rounded-lg">
                 <div className="text-sm text-gray-600">
-                  随机源: {randomSeed.isAuthentic ? '🌟 真随机 (Random.org)' : '⚡ 伪随机 (备用)'}
+                  随机源: {randomSeed.isAuthentic ? '🌟 大气噪声 (Random.org)' : '⚡ 伪随机 (备用)'}
                 </div>
               </div>
             )}
@@ -147,6 +143,7 @@ export default function LuckyIndexTest({
             result={result}
             onRetry={handleRetry}
             onUseNumbers={handleUseNumbers}
+            onReset={handleReset}
           />
         </div>
       )}
@@ -156,7 +153,7 @@ export default function LuckyIndexTest({
         <div className="mt-8 p-6 bg-white/5 rounded-lg border border-white/10">
           <h3 className="text-lg font-bold text-yellow-400 mb-3">🔮 关于幸运指数测试</h3>
           <div className="text-gray-700 space-y-2 text-sm">
-            <p>• <strong>真随机技术</strong>：使用Random.org的大气噪声生成真正的随机数</p>
+            <p>• <strong>大气噪声技术</strong>：使用Random.org的大气噪声生成真正的随机数</p>
             <p>• <strong>数字命理学</strong>：结合您的姓名、生日等信息进行个性化计算</p>
             <p>• <strong>科学算法</strong>：采用加权计算方式，确保结果的合理性</p>
             <p>• <strong>隐私保护</strong>：所有信息仅用于计算，不会存储或分享</p>

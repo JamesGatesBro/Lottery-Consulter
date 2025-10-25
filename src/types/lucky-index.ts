@@ -106,6 +106,7 @@ export interface LuckyResultDisplayProps {
   result: LuckyResult;
   onRetry?: () => void;
   onUseNumbers?: (numbers: number[]) => void;
+  onReset?: () => void;
   className?: string;
 }
 

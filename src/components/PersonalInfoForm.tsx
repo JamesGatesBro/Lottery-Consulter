@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { UserInput, PersonalInfoFormProps, FormErrors, LuckyColor } from '@/types/lucky-index';
 import { LUCKY_COLORS, DEFAULT_PREFERENCES } from '@/types/lucky-index';
 
@@ -12,7 +12,62 @@ export default function PersonalInfoForm({ onSubmit, isLoading, className = '' }
     preferences: DEFAULT_PREFERENCES,
   });
 
+  // 生日的年月日状态
+  const [birthYear, setBirthYear] = useState<string>('');
+  const [birthMonth, setBirthMonth] = useState<string>('');
+  const [birthDay, setBirthDay] = useState<string>('');
+
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // 判断是否为闰年
+  const isLeapYear = (year: number): boolean => {
+    return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  };
+
+  // 获取指定年月的天数
+  const getDaysInMonth = (year: number, month: number): number => {
+    const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month === 2 && isLeapYear(year)) {
+      return 29;
+    }
+    return daysInMonth[month - 1];
+  };
+
+  // 生成年份选项（1900年到当前年份）
+  const generateYearOptions = (): number[] => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let year = currentYear; year >= 1900; year--) {
+      years.push(year);
+    }
+    return years;
+  };
+
+  // 生成月份选项
+  const generateMonthOptions = (): number[] => {
+    return Array.from({ length: 12 }, (_, i) => i + 1);
+  };
+
+  // 生成日期选项
+  const generateDayOptions = (): number[] => {
+    if (!birthYear || !birthMonth) return [];
+    const year = parseInt(birthYear);
+    const month = parseInt(birthMonth);
+    const daysInMonth = getDaysInMonth(year, month);
+    return Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  };
+
+  // 初始化年月日状态（如果formData.birthDate有值）
+  useEffect(() => {
+    if (formData.birthDate && !birthYear && !birthMonth && !birthDay) {
+      const date = new Date(formData.birthDate);
+      if (!isNaN(date.getTime())) {
+        setBirthYear(date.getFullYear().toString());
+        setBirthMonth((date.getMonth() + 1).toString());
+        setBirthDay(date.getDate().toString());
+      }
+    }
+  }, [formData.birthDate, birthYear, birthMonth, birthDay]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -84,6 +139,60 @@ export default function PersonalInfoForm({ onSubmit, isLoading, className = '' }
     }));
   };
 
+  // 处理年月日变化
+  const handleBirthDateChange = (type: 'year' | 'month' | 'day', value: string) => {
+    let newYear = birthYear;
+    let newMonth = birthMonth;
+    let newDay = birthDay;
+
+    if (type === 'year') {
+      setBirthYear(value);
+      newYear = value;
+    } else if (type === 'month') {
+      setBirthMonth(value);
+      newMonth = value;
+    } else if (type === 'day') {
+      setBirthDay(value);
+      newDay = value;
+    }
+
+    // 检查日期是否有效（处理2月29日在非闰年的情况）
+    if (newYear && newMonth && newDay) {
+      const year = parseInt(newYear);
+      const month = parseInt(newMonth);
+      const day = parseInt(newDay);
+      const maxDays = getDaysInMonth(year, month);
+      
+      if (day > maxDays) {
+        // 如果选择的日期超过了该月的最大天数，自动调整为该月的最后一天
+        newDay = maxDays.toString();
+        setBirthDay(newDay);
+      }
+    }
+
+    // 更新formData.birthDate
+    if (newYear && newMonth && newDay) {
+      const formattedDate = `${newYear}-${newMonth.padStart(2, '0')}-${newDay.padStart(2, '0')}`;
+      setFormData(prev => ({
+        ...prev,
+        birthDate: formattedDate,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        birthDate: '',
+      }));
+    }
+
+    // 清除生日错误
+    if (errors.birthDate) {
+      setErrors(prev => ({
+        ...prev,
+        birthDate: undefined,
+      }));
+    }
+  };
+
   return (
     <div className={`bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-yellow-400/30 ${className}`}>
       <div className="text-center mb-8">
@@ -115,20 +224,73 @@ export default function PersonalInfoForm({ onSubmit, isLoading, className = '' }
 
         {/* 生日输入 */}
         <div>
-          <label htmlFor="birthDate" className="block text-gray-800 font-medium mb-2">
+          <label className="block text-gray-800 font-medium mb-2">
             生日 <span className="text-red-400">*</span>
           </label>
-          <input
-            type="date"
-            id="birthDate"
-            value={formData.birthDate}
-            onChange={(e) => handleInputChange('birthDate', e.target.value)}
-            className={`w-full px-4 py-3 rounded-lg bg-white/10 border ${
-              errors.birthDate ? 'border-red-400' : 'border-yellow-400/30'
-            } text-gray-800 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all`}
-            disabled={isLoading}
-            max={new Date().toISOString().split('T')[0]}
-          />
+          <div className="grid grid-cols-3 gap-3">
+            {/* 年份选择 */}
+            <div>
+              <label htmlFor="birthYear" className="block text-gray-700 text-sm mb-1">
+                年份
+              </label>
+              <select
+                id="birthYear"
+                value={birthYear}
+                onChange={(e) => handleBirthDateChange('year', e.target.value)}
+                className={`w-full px-3 py-3 rounded-lg bg-white/10 border ${
+                  errors.birthDate ? 'border-red-400' : 'border-yellow-400/30'
+                } text-gray-800 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all`}
+                disabled={isLoading}
+              >
+                <option value="">选择年份</option>
+                {generateYearOptions().map(year => (
+                  <option key={year} value={year}>{year}年</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 月份选择 */}
+            <div>
+              <label htmlFor="birthMonth" className="block text-gray-700 text-sm mb-1">
+                月份
+              </label>
+              <select
+                id="birthMonth"
+                value={birthMonth}
+                onChange={(e) => handleBirthDateChange('month', e.target.value)}
+                className={`w-full px-3 py-3 rounded-lg bg-white/10 border ${
+                  errors.birthDate ? 'border-red-400' : 'border-yellow-400/30'
+                } text-gray-800 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all`}
+                disabled={isLoading}
+              >
+                <option value="">选择月份</option>
+                {generateMonthOptions().map(month => (
+                  <option key={month} value={month}>{month}月</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 日期选择 */}
+            <div>
+              <label htmlFor="birthDay" className="block text-gray-700 text-sm mb-1">
+                日期
+              </label>
+              <select
+                id="birthDay"
+                value={birthDay}
+                onChange={(e) => handleBirthDateChange('day', e.target.value)}
+                className={`w-full px-3 py-3 rounded-lg bg-white/10 border ${
+                  errors.birthDate ? 'border-red-400' : 'border-yellow-400/30'
+                } text-gray-800 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all`}
+                disabled={isLoading || !birthYear || !birthMonth}
+              >
+                <option value="">选择日期</option>
+                {generateDayOptions().map(day => (
+                  <option key={day} value={day}>{day}日</option>
+                ))}
+              </select>
+            </div>
+          </div>
           {errors.birthDate && (
             <p className="text-red-400 text-sm mt-1">{errors.birthDate}</p>
           )}

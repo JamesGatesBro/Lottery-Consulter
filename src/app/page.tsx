@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { FortuneDisplay } from "@/components/FortuneDisplay";
 import { useFortune } from "@/hooks/useFortune";
 import LuckyIndexTest from "@/components/LuckyIndexTest";
-import type { LuckyResult } from "@/types/lucky-index";
 
 
 
@@ -278,7 +277,7 @@ export default function Home() {
       window.removeEventListener('useLuckyNumbers', handleUseLuckyNumbers as EventListener);
       window.removeEventListener('triggerTryLuck', handleTriggerTryLuck as EventListener);
     };
-  }, []);
+  }, [onTryLuck, type]);
 
   const title = useMemo(() => "好运来敲我的门", []);
 
@@ -295,7 +294,7 @@ export default function Home() {
         </p>
         {/* Disclaimer */}
         <p className="mt-3 text-sm md:text-base text-zinc-600 dark:text-zinc-400">
-          本页面仅供娱乐，不能用于彩票购买，不保证号码中奖。
+          本页面不收集、不保存任何个人信息。仅供娱乐，不能用于彩票购买，不保证号码中奖。
         </p>
 
         {/* Selector and actions */}
@@ -339,8 +338,6 @@ export default function Home() {
             <LuckyIndexTest />
           </div>
         )}
-
-
 
         {/* Numbers area */}
         <section className="mt-8 rounded-lg border bg-card p-4 md:p-6 splitflap">

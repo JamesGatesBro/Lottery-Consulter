@@ -1,25 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// 数字命理学权重配置
-const NUMEROLOGY_WEIGHTS = {
-  name: 0.3,        // 姓名数字权重
-  birthDate: 0.4,   // 生日数字权重
-  luckyColor: 0.1,  // 幸运颜色权重
-  randomSeed: 0.2   // 随机种子权重
-};
-
-// 颜色数值映射
-const COLOR_VALUES: Record<string, number> = {
-  red: 1,
-  orange: 2,
-  yellow: 3,
-  green: 4,
-  blue: 5,
-  purple: 6,
-  pink: 7,
-  white: 8,
-  black: 9
-};
+import type { UserInput, LuckyResult } from '@/types/lucky-index';
+import { NUMEROLOGY_WEIGHTS, COLOR_VALUES } from '@/types/lucky-index';
 
 // 幸运指数解读文本
 const INTERPRETATIONS = [
@@ -32,31 +13,7 @@ const INTERPRETATIONS = [
   { min: 0, max: 39, text: "您的幸运指数较低！今天适合反思和规划，避免冒险行为。相信困难是暂时的，好运即将到来。" }
 ];
 
-interface UserInput {
-  name: string;
-  birthDate: string;
-  luckyColor?: string;
-  preferences?: {
-    numberRange?: string;
-    count?: number;
-    includeZero?: boolean;
-  };
-}
 
-interface LuckyResult {
-  luckyIndex: number;
-  luckyNumbers: number[];
-  interpretation: string;
-  randomSeed: string;
-  timestamp: string;
-  confidence: number;
-  factors: {
-    nameScore: number;
-    birthScore: number;
-    colorScore: number;
-    randomScore: number;
-  };
-}
 
 // 将字符串转换为数字（数字命理学）
 function stringToNumber(str: string): number {
@@ -85,16 +42,25 @@ function calculateBirthNumber(birthDate: string): number {
   return sum;
 }
 
+// 解析数字范围字符串
+function parseNumberRange(numberRange: string): { min: number; max: number } {
+  const [minStr, maxStr] = numberRange.split('-');
+  const min = parseInt(minStr) || 1;
+  const max = parseInt(maxStr) || 33;
+  return { min, max };
+}
+
 // 获取随机种子
-async function getRandomSeed(): Promise<{ seed: string; numbers: number[] }> {
+async function getRandomSeed(min: number = 1, max: number = 49): Promise<{ seed: string; numbers: number[]; source: string }> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/random-seed?count=6&min=1&max=49`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/random-seed?count=6&min=${min}&max=${max}`);
     const data = await response.json();
     
     if (data.success) {
       return {
-        seed: data.data.join(''),
-        numbers: data.data
+        seed: data.source === 'random.org' ? `random.org-${data.data.join('')}` : data.data.join(''),
+        numbers: data.data,
+        source: data.source
       };
     }
   } catch (error) {
@@ -102,10 +68,12 @@ async function getRandomSeed(): Promise<{ seed: string; numbers: number[] }> {
   }
   
   // 备用方案
-  const numbers = Array.from({ length: 6 }, () => Math.floor(Math.random() * 49) + 1);
+  const range = max - min + 1;
+  const numbers = Array.from({ length: 6 }, () => Math.floor(Math.random() * range) + min);
   return {
     seed: numbers.join(''),
-    numbers
+    numbers,
+    source: 'fallback'
   };
 }
 
@@ -132,7 +100,9 @@ function generateLuckyNumbers(
   birthScore: number,
   colorScore: number,
   randomNumbers: number[],
-  count: number = 6
+  count: number = 6,
+  min: number = 1,
+  max: number = 49
 ): number[] {
   const baseNumbers = [nameScore, birthScore, colorScore];
   const allNumbers = [...baseNumbers, ...randomNumbers];
@@ -140,19 +110,21 @@ function generateLuckyNumbers(
   // 使用算法生成更多数字
   const luckyNumbers: number[] = [];
   const usedNumbers = new Set<number>();
+  const range = max - min + 1;
   
-  // 首先添加基础数字
+  // 首先添加基础数字（需要映射到指定范围）
   for (const num of allNumbers) {
-    if (num >= 1 && num <= 49 && !usedNumbers.has(num)) {
-      luckyNumbers.push(num);
-      usedNumbers.add(num);
+    const mappedNum = ((num - 1) % range) + min;
+    if (mappedNum >= min && mappedNum <= max && !usedNumbers.has(mappedNum)) {
+      luckyNumbers.push(mappedNum);
+      usedNumbers.add(mappedNum);
     }
   }
   
   // 生成额外的幸运数字
   while (luckyNumbers.length < count) {
     const seed = nameScore + birthScore + colorScore + luckyNumbers.length;
-    const newNumber = ((seed * 7 + 13) % 49) + 1;
+    const newNumber = ((seed * 7 + 13) % range) + min;
     
     if (!usedNumbers.has(newNumber)) {
       luckyNumbers.push(newNumber);
@@ -192,8 +164,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // 解析数字范围
+    const numberRange = body.preferences?.numberRange || '1-33';
+    const { min, max } = parseNumberRange(numberRange);
+    
     // 获取随机种子
-    const { seed, numbers: randomNumbers } = await getRandomSeed();
+    const { seed, numbers: randomNumbers, source } = await getRandomSeed(min, max);
     
     // 计算各项分数
     const nameScore = stringToNumber(body.name);
@@ -218,14 +194,16 @@ export async function POST(request: NextRequest) {
       birthScore,
       colorScore,
       randomNumbers,
-      count
+      count,
+      min,
+      max
     );
     
     // 获取解读文本
     const interpretation = getInterpretation(luckyIndex);
     
     // 计算可信度（基于真随机数的使用）
-    const confidence = seed.includes('random.org') ? 95 : 85;
+    const confidence = source === 'random.org' ? 95 : 85;
     
     const result: LuckyResult = {
       luckyIndex,
@@ -243,7 +221,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         processingTime: Date.now(),
         apiVersion: '1.0',
-        randomSource: seed.includes('random.org') ? 'random.org' : 'fallback'
+        randomSource: source
       }
     });
     

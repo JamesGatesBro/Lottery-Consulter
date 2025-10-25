@@ -7,6 +7,7 @@ export default function LuckyResultDisplay({
   result, 
   onRetry, 
   onUseNumbers, 
+  onReset,
   className = '' 
 }: LuckyResultDisplayProps) {
   const [animatedIndex, setAnimatedIndex] = useState(0);
@@ -133,7 +134,7 @@ export default function LuckyResultDisplay({
         {/* 可信度显示 */}
         <div className="text-gray-600 text-sm mb-6">
           可信度: {result.confidence}% | 
-          随机源: {result.randomSeed.includes('random.org') ? '真随机' : '伪随机'} |
+          随机源: {result.randomSeed.includes('random.org') ? '大气噪声' : '伪随机'} |
           计算时间: {formatTimestamp(result.timestamp)}
         </div>
       </div>
@@ -199,28 +200,18 @@ export default function LuckyResultDisplay({
             onClick={() => onUseNumbers(result.luckyNumbers)}
             className="flex-1 py-3 px-6 rounded-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold hover:from-yellow-500 hover:to-orange-600 transition-all transform hover:scale-105"
           >
-            用这些数字试手气并生成号码
+            用这些数字试试手气
           </button>
         )}
         
-        <button
-          onClick={() => {
-            const shareText = `我的幸运指数是${result.luckyIndex}分！幸运数字：${result.luckyNumbers.join(', ')}`;
-            if (navigator.share) {
-              navigator.share({
-                title: '我的幸运指数测试结果',
-                text: shareText,
-                url: window.location.href,
-              });
-            } else {
-              navigator.clipboard.writeText(shareText);
-              alert('结果已复制到剪贴板！');
-            }
-          }}
-          className="flex-1 py-3 px-6 rounded-lg bg-white/10 border border-yellow-400/30 text-gray-800 font-medium hover:bg-white/20 transition-all"
-        >
-          分享结果
-        </button>
+        {onReset && (
+          <button
+            onClick={onReset}
+            className="flex-1 py-3 px-6 rounded-lg bg-white/10 border border-yellow-400/30 text-gray-800 font-medium hover:bg-white/20 transition-all"
+          >
+            重新开始
+          </button>
+        )}
       </div>
     </div>
   );
