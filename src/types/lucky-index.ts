@@ -1,7 +1,11 @@
+// 性别类型
+export type Gender = 'male' | 'female' | 'other';
+
 // 用户输入类型
 export interface UserInput {
   name: string;
   birthDate: string; // YYYY-MM-DD format
+  gender: Gender;
   luckyColor?: string;
   preferences?: {
     numberRange?: string;
@@ -30,6 +34,7 @@ export interface LuckyResult {
   factors: {
     nameScore: number;
     birthScore: number;
+    genderScore: number;
     colorScore: number;
     randomScore: number;
   };
@@ -67,6 +72,7 @@ export interface LuckyColor {
 export interface NumerologyWeights {
   name: number;
   birthDate: number;
+  gender: number;
   luckyColor: number;
   randomSeed: number;
 }
@@ -116,10 +122,11 @@ export interface PersonalInfoFormProps {
   className?: string;
 }
 
-// 表单验证错误类型
+// 表单错误接口
 export interface FormErrors {
   name?: string;
   birthDate?: string;
+  gender?: string;
   luckyColor?: string;
   preferences?: string;
 }
@@ -156,11 +163,26 @@ export const COLOR_VALUES: Record<string, number> = {
   black: 9,
 };
 
+// 性别选项
+export const GENDER_OPTIONS = [
+  { value: 'male', label: '男性', description: '偏向奇数，增强事业运' },
+  { value: 'female', label: '女性', description: '偏向偶数，增强感情运' },
+  { value: 'other', label: '其他', description: '平衡计算，综合运势' },
+] as const;
+
+// 性别数值映射
+export const GENDER_VALUES: Record<Gender, number> = {
+  male: 1,
+  female: 2,
+  other: 3,
+};
+
 export const NUMEROLOGY_WEIGHTS: NumerologyWeights = {
-  name: 0.3,
-  birthDate: 0.4,
+  name: 0.25,
+  birthDate: 0.35,
+  gender: 0.15,
   luckyColor: 0.1,
-  randomSeed: 0.2,
+  randomSeed: 0.15,
 };
 
 // 默认偏好设置

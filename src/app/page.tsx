@@ -188,6 +188,7 @@ export default function Home() {
   const [showFireworks, setShowFireworks] = useState<boolean>(false);
   const [showLuckyTest, setShowLuckyTest] = useState<boolean>(false);
   const [luckyNumbers, setLuckyNumbers] = useState<number[] | null>(null);
+  const [shouldAutoTryLuck, setShouldAutoTryLuck] = useState<boolean>(false);
   
   // Fortune hook
   const { fortune, loading: fortuneLoading, error: fortuneError, fetchFortune } = useFortune();
@@ -253,6 +254,14 @@ export default function Home() {
     }
   }, [type, luckyNumbers, globalDuration, fetchFortune]);
 
+  // 监听幸运数字变化，自动触发彩票生成
+  useEffect(() => {
+    if (shouldAutoTryLuck && luckyNumbers && luckyNumbers.length > 0) {
+      setShouldAutoTryLuck(false); // 重置标志
+      onTryLuck();
+    }
+  }, [luckyNumbers, shouldAutoTryLuck, onTryLuck]);
+
   // 监听幸运数字使用事件和触发试手气事件
   useEffect(() => {
     const handleUseLuckyNumbers = (event: CustomEvent) => {
@@ -266,8 +275,8 @@ export default function Home() {
     };
 
     const handleTriggerTryLuck = () => {
-      // 自动触发试手气功能
-      onTryLuck();
+      // 设置标志，等待luckyNumbers状态更新后自动触发
+      setShouldAutoTryLuck(true);
     };
 
     window.addEventListener('useLuckyNumbers', handleUseLuckyNumbers as EventListener);

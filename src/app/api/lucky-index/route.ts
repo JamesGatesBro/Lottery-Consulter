@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { UserInput, LuckyResult } from '@/types/lucky-index';
-import { NUMEROLOGY_WEIGHTS, COLOR_VALUES } from '@/types/lucky-index';
+import type { UserInput, LuckyResult, Gender } from '@/types/lucky-index';
+import { NUMEROLOGY_WEIGHTS, COLOR_VALUES, GENDER_VALUES } from '@/types/lucky-index';
 
 // 幸运指数解读文本
 const INTERPRETATIONS = [
@@ -42,6 +42,25 @@ function calculateBirthNumber(birthDate: string): number {
   return sum;
 }
 
+// 计算性别分数
+function calculateGenderScore(gender: Gender): number {
+  const baseScore = GENDER_VALUES[gender];
+  // 根据性别特性调整分数，确保返回整数
+  switch (gender) {
+    case 'male':
+      // 男性偏向奇数，增强事业运 (1.2倍 -> 向上取整)
+      return Math.ceil(baseScore * 1.2);
+    case 'female':
+      // 女性偏向偶数，增强感情运 (1.1倍 -> 向上取整)
+      return Math.ceil(baseScore * 1.1);
+    case 'other':
+      // 其他性别平衡计算
+      return baseScore;
+    default:
+      return baseScore;
+  }
+}
+
 // 解析数字范围字符串
 function parseNumberRange(numberRange: string): { min: number; max: number } {
   const [minStr, maxStr] = numberRange.split('-');
@@ -81,30 +100,37 @@ async function getRandomSeed(min: number = 1, max: number = 49): Promise<{ seed:
 function calculateLuckyIndex(factors: {
   nameScore: number;
   birthScore: number;
+  genderScore: number;
   colorScore: number;
   randomScore: number;
 }): number {
   const weightedSum = 
     factors.nameScore * NUMEROLOGY_WEIGHTS.name +
     factors.birthScore * NUMEROLOGY_WEIGHTS.birthDate +
+    factors.genderScore * NUMEROLOGY_WEIGHTS.gender +
     factors.colorScore * NUMEROLOGY_WEIGHTS.luckyColor +
     factors.randomScore * NUMEROLOGY_WEIGHTS.randomSeed;
   
-  // 将结果映射到0-100范围
-  return Math.round(weightedSum * 11.11); // 9 * 11.11 ≈ 100
+  // 将结果映射到0-100范围，确保返回整数
+  const luckyIndex = Math.round(weightedSum * 11.11); // 9 * 11.11 ≈ 100
+  
+  // 确保结果在0-100范围内且为整数
+  return Math.max(0, Math.min(100, Math.round(luckyIndex)));
 }
 
 // 生成幸运数字
 function generateLuckyNumbers(
   nameScore: number,
   birthScore: number,
+  genderScore: number,
   colorScore: number,
   randomNumbers: number[],
+  gender: Gender,
   count: number = 6,
   min: number = 1,
   max: number = 49
 ): number[] {
-  const baseNumbers = [nameScore, birthScore, colorScore];
+  const baseNumbers = [nameScore, birthScore, genderScore, colorScore];
   const allNumbers = [...baseNumbers, ...randomNumbers];
   
   // 使用算法生成更多数字
@@ -112,19 +138,35 @@ function generateLuckyNumbers(
   const usedNumbers = new Set<number>();
   const range = max - min + 1;
   
-  // 首先添加基础数字（需要映射到指定范围）
+  // 首先添加基础数字（需要映射到指定范围），确保都是整数
   for (const num of allNumbers) {
-    const mappedNum = ((num - 1) % range) + min;
+    const mappedNum = Math.floor(((Math.floor(num) - 1) % range) + min);
     if (mappedNum >= min && mappedNum <= max && !usedNumbers.has(mappedNum)) {
       luckyNumbers.push(mappedNum);
       usedNumbers.add(mappedNum);
     }
   }
   
-  // 生成额外的幸运数字
+  // 生成额外的幸运数字，根据性别调整偏好，确保都是整数
   while (luckyNumbers.length < count) {
-    const seed = nameScore + birthScore + colorScore + luckyNumbers.length;
-    const newNumber = ((seed * 7 + 13) % range) + min;
+    const seed = Math.floor(nameScore) + Math.floor(birthScore) + Math.floor(genderScore) + Math.floor(colorScore) + luckyNumbers.length;
+    let newNumber = Math.floor(((seed * 7 + 13) % range) + min);
+    
+    // 根据性别调整数字偏好
+    if (gender === 'male') {
+      // 男性偏向奇数
+      if (newNumber % 2 === 0 && newNumber > min) {
+        newNumber = newNumber - 1;
+      }
+    } else if (gender === 'female') {
+      // 女性偏向偶数
+      if (newNumber % 2 === 1 && newNumber < max) {
+        newNumber = newNumber + 1;
+      }
+    }
+    
+    // 确保最终数字是整数
+    newNumber = Math.floor(newNumber);
     
     if (!usedNumbers.has(newNumber)) {
       luckyNumbers.push(newNumber);
@@ -148,9 +190,9 @@ export async function POST(request: NextRequest) {
     const body: UserInput = await request.json();
     
     // 验证必需字段
-    if (!body.name || !body.birthDate) {
+    if (!body.name || !body.birthDate || !body.gender) {
       return NextResponse.json(
-        { success: false, error: '姓名和生日是必需的' },
+        { success: false, error: '姓名、生日和性别是必需的' },
         { status: 400 }
       );
     }
@@ -174,12 +216,14 @@ export async function POST(request: NextRequest) {
     // 计算各项分数
     const nameScore = stringToNumber(body.name);
     const birthScore = calculateBirthNumber(body.birthDate);
+    const genderScore = calculateGenderScore(body.gender);
     const colorScore = body.luckyColor ? (COLOR_VALUES[body.luckyColor] || 5) : 5;
     const randomScore = randomNumbers.reduce((sum, num) => sum + num, 0) % 9 + 1;
     
     const factors = {
       nameScore,
       birthScore,
+      genderScore,
       colorScore,
       randomScore
     };
@@ -192,8 +236,10 @@ export async function POST(request: NextRequest) {
     const luckyNumbers = generateLuckyNumbers(
       nameScore,
       birthScore,
+      genderScore,
       colorScore,
       randomNumbers,
+      body.gender,
       count,
       min,
       max

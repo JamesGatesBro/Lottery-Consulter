@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { UserInput, PersonalInfoFormProps, FormErrors, LuckyColor } from '@/types/lucky-index';
-import { LUCKY_COLORS, DEFAULT_PREFERENCES } from '@/types/lucky-index';
+import type { UserInput, PersonalInfoFormProps, FormErrors, LuckyColor, Gender } from '@/types/lucky-index';
+import { LUCKY_COLORS, DEFAULT_PREFERENCES, GENDER_OPTIONS } from '@/types/lucky-index';
 
 export default function PersonalInfoForm({ onSubmit, isLoading, className = '' }: PersonalInfoFormProps) {
   const [formData, setFormData] = useState<UserInput>({
     name: '',
     birthDate: '',
+    gender: 'other' as Gender,
     luckyColor: '',
     preferences: DEFAULT_PREFERENCES,
   });
@@ -100,6 +101,11 @@ export default function PersonalInfoForm({ onSubmit, isLoading, className = '' }
           newErrors.birthDate = '请输入有效的生日';
         }
       }
+    }
+
+    // 验证性别
+    if (!formData.gender) {
+      newErrors.gender = '请选择您的性别';
     }
 
     setErrors(newErrors);
@@ -293,6 +299,34 @@ export default function PersonalInfoForm({ onSubmit, isLoading, className = '' }
           </div>
           {errors.birthDate && (
             <p className="text-red-400 text-sm mt-1">{errors.birthDate}</p>
+          )}
+        </div>
+
+        {/* 性别选择 */}
+        <div>
+          <label className="block text-gray-800 font-medium mb-3">
+            性别 <span className="text-red-400">*</span>
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            {GENDER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => handleInputChange('gender', option.value)}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  formData.gender === option.value
+                    ? 'border-yellow-400 bg-yellow-400/20'
+                    : 'border-white/20 bg-white/5 hover:border-yellow-400/50'
+                }`}
+                disabled={isLoading}
+              >
+                <div className="font-medium text-gray-800">{option.label}</div>
+                <div className="text-sm text-gray-600 mt-1">{option.description}</div>
+              </button>
+            ))}
+          </div>
+          {errors.gender && (
+            <p className="text-red-400 text-sm mt-1">{errors.gender}</p>
           )}
         </div>
 
