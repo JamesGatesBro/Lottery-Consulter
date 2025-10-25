@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FortuneDisplay } from "@/components/FortuneDisplay";
 import { useFortune } from "@/hooks/useFortune";
+import LuckyIndexTest from "@/components/LuckyIndexTest";
+import type { LuckyResult } from "@/types/lucky-index";
 
 
 
@@ -18,17 +20,6 @@ type GeneratedResult = {
 const LOTTERY_STORAGE_KEY = "lottery-consulter:last";
 const TYPE_STORAGE_KEY = "lottery-consulter:type";
 
-function pickUnique(count: number, max: number) {
-  const pool = Array.from({ length: max }, (_, i) => i + 1);
-  const res: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const idx = Math.floor(Math.random() * pool.length);
-    res.push(pool[idx]);
-    pool.splice(idx, 1);
-  }
-  return res.sort((a, b) => a - b);
-}
-
 // Remove legacy Chinese-key LotteryType; use English keys below
 type LotteryType = "double_color" | "qilecai" | "fucai3d" | "kuaile8";
 const LOTTERY_LABELS: Record<LotteryType, string> = {
@@ -37,30 +28,6 @@ const LOTTERY_LABELS: Record<LotteryType, string> = {
   fucai3d: "福彩3D",
   kuaile8: "快乐8",
 };
-
-function generateNumbers(type: LotteryType): GeneratedResult {
-  if (type === "double_color") {
-    const reds = pickUnique(6, 33);
-    const blues = pickUnique(1, 16);
-    return { type, reds, blues };
-  }
-  if (type === "qilecai") {
-    const mains = pickUnique(7, 30);
-    let special = 0;
-    while (true) {
-      special = Math.floor(Math.random() * 30) + 1;
-      if (!mains.includes(special)) break;
-    }
-    const numbers = [...mains, special];
-    return { type, numbers };
-  }
-  if (type === "fucai3d") {
-    const numbers = Array.from({ length: 3 }, () => 1 + Math.floor(Math.random() * 9));
-    return { type, numbers };
-  }
-  const numbers = pickUnique(20, 80);
-  return { type, numbers };
-}
 
 function useGluqloRolling(target: number, duration = 4500, min = 0, max = 99, startAnimation = false) {
   const [currentDisplayValue, setCurrentDisplayValue] = useState(0);
@@ -220,6 +187,8 @@ export default function Home() {
   const [globalDuration, setGlobalDuration] = useState<number>(4500);
   const [startAnimation, setStartAnimation] = useState<boolean>(false);
   const [showFireworks, setShowFireworks] = useState<boolean>(false);
+  const [showLuckyTest, setShowLuckyTest] = useState<boolean>(false);
+  const [luckyNumbers, setLuckyNumbers] = useState<number[] | null>(null);
   
   // Fortune hook
   const { fortune, loading: fortuneLoading, error: fortuneError, fetchFortune } = useFortune();
@@ -232,42 +201,84 @@ export default function Home() {
     if (type) localStorage.setItem(TYPE_STORAGE_KEY, type);
   }, [type]);
 
-  const onTryLuck = async () => {
+  const onTryLuck = useCallback(async () => {
     setError("");
     if (!type) {
       setError("请先选择彩票类型");
       return;
     }
-    
-    // Duration bias: 75% prefer 2–3s, 25% prefer 3–5s
-    const pickShort = Math.random() < 0.75;
-    const duration = pickShort
-      ? 2000 + Math.floor(Math.pow(Math.random(), 3.2) * 1000)
-      : 3000 + Math.floor(Math.pow(Math.random(), 2.0) * 2000);
-    setGlobalDuration(duration);
-    
-    const r = generateNumbers(type);
-    setResult(r);
-    setStartAnimation(true);
-    
-    // 同时获取幸运签语
+
+    setStartAnimation(false);
+    setResult(null);
+
     try {
-      await fetchFortune('cookie');
-    } catch (error) {
-      console.warn('Failed to fetch fortune:', error);
+      const requestBody: any = { type };
+      
+      // 如果有幸运数字，传递给API
+      if (luckyNumbers && luckyNumbers.length > 0) {
+        requestBody.luckyNumbers = luckyNumbers;
+      }
+
+      const response = await fetch("/api/lottery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setResult(data);
+
+      // 清除已使用的幸运数字
+      setLuckyNumbers(null);
+
+      // Start animation after a short delay
+      setTimeout(() => {
+        setStartAnimation(true);
+      }, 100);
+
+      // Show fireworks after animation completes
+      setTimeout(() => {
+        setShowFireworks(true);
+        setTimeout(() => setShowFireworks(false), 3000);
+      }, globalDuration + 500);
+
+      // Fetch fortune after generating numbers
+      fetchFortune('cookie');
+    } catch (err) {
+      console.error("Error generating lottery numbers:", err);
+      setError("生成彩票号码时出错，请重试");
     }
+  }, [type, luckyNumbers, globalDuration, fetchFortune]);
+
+  // 监听幸运数字使用事件和触发试手气事件
+  useEffect(() => {
+    const handleUseLuckyNumbers = (event: CustomEvent) => {
+      const { numbers } = event.detail;
+      setLuckyNumbers(numbers);
+      
+      // 自动设置为双色球类型（最常用）
+      if (!type) {
+        setType('double_color');
+      }
+    };
+
+    const handleTriggerTryLuck = () => {
+      // 自动触发试手气功能
+      onTryLuck();
+    };
+
+    window.addEventListener('useLuckyNumbers', handleUseLuckyNumbers as EventListener);
+    window.addEventListener('triggerTryLuck', handleTriggerTryLuck as EventListener);
     
-    // After animation completes, reset trigger and show fireworks
-    setTimeout(() => {
-      setStartAnimation(false);
-      setShowFireworks(true);
-      setTimeout(() => setShowFireworks(false), 1800);
-    }, duration + 100);
-    
-    try {
-      localStorage.setItem(LOTTERY_STORAGE_KEY, JSON.stringify(r));
-    } catch {}
-  };
+    return () => {
+      window.removeEventListener('useLuckyNumbers', handleUseLuckyNumbers as EventListener);
+      window.removeEventListener('triggerTryLuck', handleTriggerTryLuck as EventListener);
+    };
+  }, []);
 
   const title = useMemo(() => "好运来敲我的门", []);
 
@@ -311,17 +322,25 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Fortune Display */}
-        {(fortune || fortuneLoading || fortuneError) && (
-          <div className="mt-6">
-            <FortuneDisplay 
-              fortune={fortune} 
-              loading={fortuneLoading} 
-              error={fortuneError}
-              onRefresh={() => fetchFortune('cookie')}
-            />
+        {/* Lucky Index Test Toggle */}
+        <div className="mt-8 text-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowLuckyTest(!showLuckyTest)}
+            className="bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200 text-amber-800 hover:from-amber-100 hover:to-yellow-100 hover:border-amber-300 transition-all duration-300"
+          >
+            {showLuckyTest ? '隐藏幸运指数测试' : '🔮 幸运指数测试'}
+          </Button>
+        </div>
+
+        {/* Lucky Index Test */}
+        {showLuckyTest && (
+          <div className="mt-6 mb-8">
+            <LuckyIndexTest />
           </div>
         )}
+
+
 
         {/* Numbers area */}
         <section className="mt-8 rounded-lg border bg-card p-4 md:p-6 splitflap">
@@ -390,6 +409,19 @@ export default function Home() {
             </div>
           )}
         </section>
+
+        {/* Fortune Display */}
+        {(fortune || fortuneLoading || fortuneError) && (
+          <div className="mt-8">
+            <FortuneDisplay 
+              fortune={fortune} 
+              loading={fortuneLoading} 
+              error={fortuneError}
+              onRefresh={() => fetchFortune('cookie')}
+            />
+          </div>
+        )}
+
       </main>
       {/* Fireworks overlay */}
       <FireworksOverlay active={showFireworks} />
