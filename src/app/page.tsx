@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { FortuneDisplay } from "@/components/FortuneDisplay";
+import { useFortune } from "@/hooks/useFortune";
 
 
 
@@ -218,7 +220,9 @@ export default function Home() {
   const [globalDuration, setGlobalDuration] = useState<number>(4500);
   const [startAnimation, setStartAnimation] = useState<boolean>(false);
   const [showFireworks, setShowFireworks] = useState<boolean>(false);
-  // removed stopSignal state
+  
+  // Fortune hook
+  const { fortune, loading: fortuneLoading, error: fortuneError, fetchFortune } = useFortune();
 
   useEffect(() => {
     // Do not restore type and numbers on initial view
@@ -228,21 +232,30 @@ export default function Home() {
     if (type) localStorage.setItem(TYPE_STORAGE_KEY, type);
   }, [type]);
 
-  const onTryLuck = () => {
+  const onTryLuck = async () => {
     setError("");
     if (!type) {
       setError("请先选择彩票类型");
       return;
     }
+    
     // Duration bias: 75% prefer 2–3s, 25% prefer 3–5s
     const pickShort = Math.random() < 0.75;
     const duration = pickShort
       ? 2000 + Math.floor(Math.pow(Math.random(), 3.2) * 1000)
       : 3000 + Math.floor(Math.pow(Math.random(), 2.0) * 2000);
     setGlobalDuration(duration);
+    
     const r = generateNumbers(type);
     setResult(r);
     setStartAnimation(true);
+    
+    // 同时获取幸运签语
+    try {
+      await fetchFortune('cookie');
+    } catch (error) {
+      console.warn('Failed to fetch fortune:', error);
+    }
     
     // After animation completes, reset trigger and show fireworks
     setTimeout(() => {
@@ -297,6 +310,18 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {/* Fortune Display */}
+        {(fortune || fortuneLoading || fortuneError) && (
+          <div className="mt-6">
+            <FortuneDisplay 
+              fortune={fortune} 
+              loading={fortuneLoading} 
+              error={fortuneError}
+              onRefresh={() => fetchFortune('cookie')}
+            />
+          </div>
+        )}
 
         {/* Numbers area */}
         <section className="mt-8 rounded-lg border bg-card p-4 md:p-6 splitflap">
